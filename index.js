@@ -12,7 +12,7 @@ app.use(cors());
 const upload = multer({ dest: 'uploads/' });
 
 // Resume scoring keywords
-const KEYWORDS = ['Java', 'Spring', 'React', 'AWS', 'Node', 'MongoDB', 'SQL', 'REST'];
+const KEYWORDS = ['Java', 'Spring', 'React', 'Node', 'AWS', 'Docker', 'Kubernetes', 'SQL', 'REST API'];
 
 app.post('/api/resume/upload', upload.single('resume'), (req, res) => {
     const filePath = req.file.path;
@@ -33,6 +33,42 @@ app.post('/api/resume/upload', upload.single('resume'), (req, res) => {
 
         res.json({ score });
     });
+});
+
+const pdfParse = require('pdf-parse');
+
+function calculateScore(text) {
+    const keywords = ['Java', 'Spring', 'React', 'Node', 'SQL', 'Docker'];
+    const lowerText = text.toLowerCase();
+    let score = 0;
+
+    keywords.forEach(keyword => {
+        if (lowerText.includes(keyword.toLowerCase())) {
+            score += 10;
+        }
+    });
+
+    return Math.min(score, 100); // max score capped at 100
+}
+
+app.post('/api/resume/upload', upload.single('resume'), async (req, res) => {
+    const fileBuffer = req.file.buffer;
+    let text = '';
+
+    try {
+        if (req.file.mimetype === 'application/pdf') {
+            const data = await pdfParse(fileBuffer);
+            text = data.text;
+        } else {
+            text = fileBuffer.toString('utf-8');
+        }
+
+        const score = calculateScore(text);
+        res.json({ score });
+    } catch (err) {
+        console.error('Error parsing resume:', err);
+        res.status(500).json({ error: 'Failed to parse resume' });
+    }
 });
 
 app.listen(port, () => {
